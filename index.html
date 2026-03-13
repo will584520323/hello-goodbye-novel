@@ -1144,10 +1144,12 @@
 
 <!-- 隐藏的 audio 元素 -->
 <audio id="main-audio" preload="auto" src="reading.mp3"></audio>
+<audio id="bg-audio" preload="auto" src="bg_music.mp3" loop></audio>
 
 <script>
 (function () {
   var audio       = document.getElementById('main-audio');
+  var bgAudio     = document.getElementById('bg-audio');
   var btnPlay     = document.getElementById('player-play');
   var iconPlay    = document.getElementById('icon-play');
   var iconPause   = document.getElementById('icon-pause');
@@ -1158,6 +1160,8 @@
   var volVoice    = document.getElementById('vol-voice');
   var bgBtn       = document.getElementById('player-bg-btn');
   var volBg       = document.getElementById('vol-bg');
+
+  var bgEnabled = false;
 
   /* ── 格式化时间 ── */
   function fmt(s) {
@@ -1180,21 +1184,25 @@
     iconPlay.style.display  = 'none';
     iconPause.style.display = 'block';
     wave.classList.add('playing');
-    if (bgEnabled) startBg();
+    if (bgEnabled) {
+      bgAudio.volume = parseFloat(volBg.value);
+      bgAudio.play().catch(function(e){ console.warn(e); });
+    }
   });
 
   audio.addEventListener('pause', function () {
     iconPlay.style.display  = 'block';
     iconPause.style.display = 'none';
     wave.classList.remove('playing');
-    if (bgGain) bgGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5);
+    if (bgEnabled) bgAudio.pause();
   });
 
   audio.addEventListener('ended', function () {
     iconPlay.style.display  = 'block';
     iconPause.style.display = 'none';
     wave.classList.remove('playing');
-    stopBg();
+    bgAudio.pause();
+    bgAudio.currentTime = 0;
   });
 
   /* ── 进度更新 ── */
@@ -1217,104 +1225,32 @@
     audio.volume = parseFloat(this.value);
   });
 
-  /* ══ 背景音乐（Web Audio API 合成轻钢琴音） ══ */
-  var audioCtx = null;
-  var bgGain   = null;
-  var bgNodes  = [];
-  var bgEnabled= false;
-  var bgStarted= false;
-
-  // C大调轻柔和弦序列（频率 Hz）
-  var CHORDS = [
-    [261.63, 329.63, 392.00],  // C maj
-    [293.66, 369.99, 440.00],  // D min
-    [261.63, 329.63, 392.00],  // C maj
-    [349.23, 440.00, 523.25],  // F maj
-    [392.00, 493.88, 587.33],  // G maj
-    [261.63, 329.63, 392.00],  // C maj
-    [349.23, 392.00, 493.88],  // F/A
-    [293.66, 369.99, 440.00],  // D min
-  ];
-  var chordIdx = 0;
-  var bgTimer  = null;
-
-  function initAudioCtx() {
-    if (audioCtx) return;
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    bgGain = audioCtx.createGain();
-    bgGain.gain.value = 0;
-    bgGain.connect(audioCtx.destination);
-  }
-
-  function playChord(freqs, when, dur) {
-    freqs.forEach(function (freq) {
-      var osc = audioCtx.createOscillator();
-      var env = audioCtx.createGain();
-      // 用三角波模拟柔和钢琴音
-      osc.type = 'triangle';
-      osc.frequency.value = freq;
-      env.gain.setValueAtTime(0, when);
-      env.gain.linearRampToValueAtTime(0.18, when + 0.05);
-      env.gain.exponentialRampToValueAtTime(0.001, when + dur);
-      osc.connect(env);
-      env.connect(bgGain);
-      osc.start(when);
-      osc.stop(when + dur + 0.05);
-      bgNodes.push(osc);
-    });
-  }
-
-  function scheduleChords() {
-    var now = audioCtx.currentTime;
-    var step = 3.2; // 每个和弦持续秒数
-    for (var i = 0; i < 3; i++) {
-      var idx = (chordIdx + i) % CHORDS.length;
-      playChord(CHORDS[idx], now + i * step, step * 0.85);
-    }
-    chordIdx = (chordIdx + 3) % CHORDS.length;
-    // 清理已完成的节点
-    bgNodes = bgNodes.filter(function(n){ return true; });
-    bgTimer = setTimeout(scheduleChords, step * 3 * 1000 - 300);
-  }
-
-  function startBg() {
-    if (!bgEnabled) return;
-    initAudioCtx();
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    var targetVol = parseFloat(volBg.value);
-    bgGain.gain.setTargetAtTime(targetVol, audioCtx.currentTime, 0.8);
-    if (!bgStarted) {
-      bgStarted = true;
-      scheduleChords();
-    }
-  }
-
-  function stopBg() {
-    if (bgGain) bgGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.8);
-    if (bgTimer) { clearTimeout(bgTimer); bgTimer = null; }
-    bgStarted = false;
-    chordIdx  = 0;
-  }
-
   /* ── 背景音乐开关 ── */
   bgBtn.addEventListener('click', function () {
     bgEnabled = !bgEnabled;
     bgBtn.classList.toggle('active', bgEnabled);
-    // 显示/隐藏背景音量
+    // 显示/隐藏背景音量滑块
     var bgVolWrap = document.querySelectorAll('#player-vol-wrap')[1];
     if (bgVolWrap) bgVolWrap.style.display = bgEnabled ? 'flex' : 'none';
 
-    if (bgEnabled && !audio.paused) {
-      startBg();
-    } else if (!bgEnabled) {
-      stopBg();
+    if (bgEnabled) {
+      bgAudio.volume = parseFloat(volBg.value);
+      if (!audio.paused) {
+        bgAudio.play().catch(function(e){ console.warn(e); });
+      }
+    } else {
+      bgAudio.pause();
+      bgAudio.currentTime = 0;
     }
   });
 
   /* ── 背景音量滑块 ── */
   volBg.addEventListener('input', function () {
-    if (bgGain) bgGain.gain.setTargetAtTime(parseFloat(this.value), audioCtx.currentTime, 0.1);
+    bgAudio.volume = parseFloat(this.value);
   });
+
+  // 初始背景音量
+  bgAudio.volume = parseFloat(volBg.value);
 
 })();
 </script>
