@@ -320,6 +320,101 @@
     .data-block { padding: 20px 20px; font-size: 12px; }
     body { font-size: 16px; }
   }
+
+  /* ── 朗读模块 ── */
+  #tts-btn {
+    position: fixed;
+    bottom: 36px;
+    right: 36px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #1d4ed8;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 24px rgba(29,78,216,0.5);
+    z-index: 1000;
+    transition: background 0.2s, transform 0.15s;
+    outline: none;
+  }
+  #tts-btn:hover { background: #2563eb; transform: scale(1.08); }
+  #tts-btn:active { transform: scale(0.95); }
+  #tts-btn svg { width: 22px; height: 22px; fill: #fff; }
+
+  #tts-panel {
+    position: fixed;
+    bottom: 104px;
+    right: 36px;
+    background: #111827;
+    border: 1px solid #1f2937;
+    border-radius: 14px;
+    padding: 18px 20px;
+    width: 220px;
+    z-index: 1000;
+    display: none;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  }
+  #tts-panel.open { display: block; }
+
+  #tts-panel .panel-title {
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: #4b5563;
+    margin-bottom: 16px;
+    font-family: sans-serif;
+  }
+
+  #tts-panel label {
+    display: block;
+    font-size: 12px;
+    color: #6b7280;
+    margin-bottom: 6px;
+    font-family: sans-serif;
+  }
+
+  #tts-panel input[type=range] {
+    width: 100%;
+    accent-color: #2563eb;
+    margin-bottom: 14px;
+  }
+
+  #tts-play-btn {
+    width: 100%;
+    padding: 9px 0;
+    background: #1d4ed8;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    font-family: sans-serif;
+    transition: background 0.2s;
+  }
+  #tts-play-btn:hover { background: #2563eb; }
+
+  #tts-status {
+    font-size: 11px;
+    color: #374151;
+    text-align: center;
+    margin-top: 10px;
+    font-family: sans-serif;
+    min-height: 16px;
+  }
+
+  .tts-reading {
+    background: rgba(29,78,216,0.07) !important;
+    border-radius: 4px;
+    transition: background 0.3s;
+  }
+
+  @media (max-width: 600px) {
+    #tts-btn { bottom: 24px; right: 20px; width: 48px; height: 48px; }
+    #tts-panel { right: 20px; bottom: 86px; width: 190px; }
+  }
 </style>
 </head>
 <body>
@@ -947,6 +1042,7 @@
 </div>
 
 <script>
+  // ── 阅读进度条 ──
   window.addEventListener('scroll', () => {
     const el = document.documentElement;
     const scrollTop = el.scrollTop || document.body.scrollTop;
@@ -954,6 +1050,178 @@
     const progress = (scrollTop / scrollHeight) * 100;
     document.getElementById('scrollBar').style.width = progress + '%';
   });
+</script>
+
+<!-- 朗读按钮 -->
+<button id="tts-btn" title="AI朗读" onclick="togglePanel()">
+  <svg id="tts-icon-sound" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+  </svg>
+  <svg id="tts-icon-stop" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="display:none">
+    <path d="M6 6h12v12H6z"/>
+  </svg>
+</button>
+
+<!-- 朗读控制面板 -->
+<div id="tts-panel">
+  <div class="panel-title">AI 朗 读</div>
+  <label>语速 <span id="rate-val">1.0</span>x</label>
+  <input type="range" id="rate-slider" min="0.6" max="1.6" step="0.1" value="1.0" oninput="updateRate(this.value)">
+  <label>音量 <span id="vol-val">100</span>%</label>
+  <input type="range" id="vol-slider" min="0" max="1" step="0.05" value="1" oninput="updateVol(this.value)">
+  <button id="tts-play-btn" onclick="toggleRead()">开始朗读</button>
+  <div id="tts-status"></div>
+</div>
+
+<script>
+(function() {
+  const synth = window.speechSynthesis;
+  let utterances = [];
+  let currentIdx = 0;
+  let isPlaying = false;
+  let rate = 1.0;
+  let volume = 1.0;
+  let femaleVoice = null;
+  let paragraphs = [];
+  let panelOpen = false;
+
+  // 获取所有正文段落（排除脚本、按钮等）
+  function getParagraphs() {
+    const nodes = document.querySelectorAll('p, blockquote, .note-block, .preface-text, .ending-note .final-line, .cover-desc');
+    const result = [];
+    nodes.forEach(n => {
+      const text = n.innerText.trim();
+      if (text.length > 1) result.push({ el: n, text });
+    });
+    return result;
+  }
+
+  // 挑选中文女声
+  function pickFemaleVoice() {
+    const voices = synth.getVoices();
+    // 优先顺序：中文女声 > 中文声音 > 任何声音
+    const zhFemale = voices.filter(v =>
+      v.lang.startsWith('zh') && /female|woman|girl|xiaoxiao|xiaoyi|yunxi|huihui|yaoyao|tingting|凌小宣|晓晓|云希|慧慧/i.test(v.name)
+    );
+    if (zhFemale.length) return zhFemale[0];
+    const zh = voices.filter(v => v.lang.startsWith('zh'));
+    if (zh.length) return zh[0];
+    return voices[0] || null;
+  }
+
+  function setStatus(txt) {
+    document.getElementById('tts-status').textContent = txt;
+  }
+
+  function highlightPara(idx) {
+    paragraphs.forEach((p, i) => {
+      if (i === idx) {
+        p.el.classList.add('tts-reading');
+        p.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else {
+        p.el.classList.remove('tts-reading');
+      }
+    });
+  }
+
+  function clearHighlight() {
+    paragraphs.forEach(p => p.el.classList.remove('tts-reading'));
+  }
+
+  function setPlayingUI(playing) {
+    isPlaying = playing;
+    document.getElementById('tts-play-btn').textContent = playing ? '暂停朗读' : '继续朗读';
+    document.getElementById('tts-icon-sound').style.display = playing ? 'none' : 'block';
+    document.getElementById('tts-icon-stop').style.display = playing ? 'block' : 'none';
+    if (!playing) clearHighlight();
+  }
+
+  function readFrom(idx) {
+    synth.cancel();
+    currentIdx = idx;
+    if (currentIdx >= paragraphs.length) {
+      setPlayingUI(false);
+      setStatus('朗读完毕');
+      return;
+    }
+    const p = paragraphs[currentIdx];
+    const utter = new SpeechSynthesisUtterance(p.text);
+    utter.lang = 'zh-CN';
+    utter.rate = rate;
+    utter.volume = volume;
+    if (femaleVoice) utter.voice = femaleVoice;
+
+    utter.onstart = () => {
+      highlightPara(currentIdx);
+      setStatus('第 ' + (currentIdx + 1) + ' / ' + paragraphs.length + ' 段');
+    };
+    utter.onend = () => {
+      currentIdx++;
+      readFrom(currentIdx);
+    };
+    utter.onerror = (e) => {
+      if (e.error !== 'interrupted') {
+        setStatus('朗读出错，请重试');
+        setPlayingUI(false);
+      }
+    };
+    synth.speak(utter);
+    setPlayingUI(true);
+  }
+
+  window.togglePanel = function() {
+    panelOpen = !panelOpen;
+    document.getElementById('tts-panel').classList.toggle('open', panelOpen);
+    if (panelOpen && paragraphs.length === 0) {
+      paragraphs = getParagraphs();
+      femaleVoice = pickFemaleVoice();
+      if (!femaleVoice) {
+        // voices可能还没加载完，等一下
+        synth.onvoiceschanged = () => { femaleVoice = pickFemaleVoice(); };
+      }
+      setStatus(femaleVoice ? '声音：' + femaleVoice.name.slice(0, 16) : '使用默认声音');
+    }
+  };
+
+  window.toggleRead = function() {
+    if (!paragraphs.length) paragraphs = getParagraphs();
+    if (!femaleVoice) femaleVoice = pickFemaleVoice();
+
+    if (isPlaying) {
+      synth.cancel();
+      setPlayingUI(false);
+      setStatus('已暂停');
+    } else {
+      // 如果已经读完或还没开始
+      if (currentIdx >= paragraphs.length) currentIdx = 0;
+      readFrom(currentIdx);
+      document.getElementById('tts-play-btn').textContent = '暂停朗读';
+    }
+  };
+
+  window.updateRate = function(val) {
+    rate = parseFloat(val);
+    document.getElementById('rate-val').textContent = rate.toFixed(1);
+    if (isPlaying) {
+      const idx = currentIdx;
+      synth.cancel();
+      setTimeout(() => readFrom(idx), 100);
+    }
+  };
+
+  window.updateVol = function(val) {
+    volume = parseFloat(val);
+    document.getElementById('vol-val').textContent = Math.round(volume * 100);
+  };
+
+  // 点击面板外关闭
+  document.addEventListener('click', function(e) {
+    if (panelOpen && !document.getElementById('tts-panel').contains(e.target) && e.target.id !== 'tts-btn' && !document.getElementById('tts-btn').contains(e.target)) {
+      panelOpen = false;
+      document.getElementById('tts-panel').classList.remove('open');
+    }
+  });
+})();
 </script>
 
 </body>
