@@ -321,99 +321,147 @@
     body { font-size: 16px; }
   }
 
-  /* ── 朗读模块 ── */
-  #tts-btn {
+  /* ── 朗读播放器 ── */
+  #player-bar {
     position: fixed;
-    bottom: 36px;
-    right: 36px;
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: #1d4ed8;
-    border: none;
-    cursor: pointer;
+    bottom: 0; left: 0; right: 0;
+    background: rgba(10,10,16,0.96);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid #1f2937;
+    z-index: 1000;
+    padding: 12px 24px 14px;
     display: flex;
     align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 24px rgba(29,78,216,0.5);
-    z-index: 1000;
-    transition: background 0.2s, transform 0.15s;
-    outline: none;
-  }
-  #tts-btn:hover { background: #2563eb; transform: scale(1.08); }
-  #tts-btn:active { transform: scale(0.95); }
-  #tts-btn svg { width: 22px; height: 22px; fill: #fff; }
-
-  #tts-panel {
-    position: fixed;
-    bottom: 104px;
-    right: 36px;
-    background: #111827;
-    border: 1px solid #1f2937;
-    border-radius: 14px;
-    padding: 18px 20px;
-    width: 220px;
-    z-index: 1000;
-    display: none;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
-  }
-  #tts-panel.open { display: block; }
-
-  #tts-panel .panel-title {
-    font-size: 11px;
-    letter-spacing: 3px;
-    color: #4b5563;
-    margin-bottom: 16px;
-    font-family: sans-serif;
+    gap: 16px;
+    font-family: "Helvetica Neue", sans-serif;
   }
 
-  #tts-panel label {
-    display: block;
+  #player-play {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    background: #2563eb;
+    border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.2s, transform 0.12s;
+    box-shadow: 0 0 16px rgba(37,99,235,0.5);
+  }
+  #player-play:hover { background: #3b82f6; transform: scale(1.07); }
+  #player-play svg { width: 18px; height: 18px; fill: #fff; }
+
+  #player-info {
+    flex: 1;
+    min-width: 0;
+  }
+  #player-title {
     font-size: 12px;
-    color: #6b7280;
-    margin-bottom: 6px;
-    font-family: sans-serif;
-  }
-
-  #tts-panel input[type=range] {
-    width: 100%;
-    accent-color: #2563eb;
-    margin-bottom: 14px;
-  }
-
-  #tts-play-btn {
-    width: 100%;
-    padding: 9px 0;
-    background: #1d4ed8;
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    font-size: 13px;
+    color: #9ca3af;
     letter-spacing: 2px;
+    margin-bottom: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #player-progress-wrap {
+    position: relative;
+    height: 3px;
+    background: #1f2937;
+    border-radius: 2px;
     cursor: pointer;
-    font-family: sans-serif;
-    transition: background 0.2s;
   }
-  #tts-play-btn:hover { background: #2563eb; }
-
-  #tts-status {
+  #player-progress-fill {
+    height: 100%;
+    background: #2563eb;
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.3s linear;
+    pointer-events: none;
+  }
+  #player-time {
     font-size: 11px;
-    color: #374151;
-    text-align: center;
-    margin-top: 10px;
-    font-family: sans-serif;
-    min-height: 16px;
+    color: #4b5563;
+    margin-top: 5px;
+    letter-spacing: 1px;
   }
 
-  .tts-reading {
-    background: rgba(29,78,216,0.07) !important;
-    border-radius: 4px;
-    transition: background 0.3s;
+  #player-vol-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
   }
+  #player-vol-wrap span {
+    font-size: 10px;
+    color: #4b5563;
+    letter-spacing: 1px;
+  }
+
+  /* 背景音乐按钮 */
+  #player-bg-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: transparent;
+    border: 1px solid #1f2937;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: border-color 0.2s, background 0.2s;
+    title: "背景音乐";
+  }
+  #player-bg-btn.active { background: #1a2744; border-color: #2563eb; }
+  #player-bg-btn svg { width: 16px; height: 16px; fill: #4b5563; }
+  #player-bg-btn.active svg { fill: #60a5fa; }
+
+  .vol-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 72px;
+    height: 3px;
+    background: #1f2937;
+    border-radius: 2px;
+    outline: none;
+    accent-color: #2563eb;
+  }
+  .vol-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: #2563eb;
+    cursor: pointer;
+  }
+
+  /* 音频波形动画（播放中显示） */
+  #player-wave {
+    display: none;
+    align-items: center;
+    gap: 3px;
+    flex-shrink: 0;
+  }
+  #player-wave.playing { display: flex; }
+  #player-wave span {
+    display: inline-block;
+    width: 3px;
+    background: #2563eb;
+    border-radius: 2px;
+    animation: wave 1.2s ease-in-out infinite;
+  }
+  #player-wave span:nth-child(2) { animation-delay: 0.2s; }
+  #player-wave span:nth-child(3) { animation-delay: 0.4s; }
+  #player-wave span:nth-child(4) { animation-delay: 0.1s; }
+  #player-wave span:nth-child(5) { animation-delay: 0.3s; }
+  @keyframes wave {
+    0%, 100% { height: 4px; }
+    50%       { height: 16px; }
+  }
+
+  /* 给页面底部留空间 */
+  body { padding-bottom: 80px; }
 
   @media (max-width: 600px) {
-    #tts-btn { bottom: 24px; right: 20px; width: 48px; height: 48px; }
-    #tts-panel { right: 20px; bottom: 86px; width: 190px; }
+    #player-bar { padding: 10px 14px 12px; gap: 10px; }
+    .vol-slider { width: 56px; }
   }
 </style>
 </head>
@@ -1052,217 +1100,220 @@
   });
 </script>
 
-<!-- 朗读按钮 -->
-<button id="tts-btn" title="AI朗读">
-  <svg id="tts-icon-sound" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-    <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
-  </svg>
-  <svg id="tts-icon-stop" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="display:none">
-    <path d="M6 6h12v12H6z"/>
-  </svg>
-</button>
+<!-- ══ AI 朗读播放器 ══ -->
+<div id="player-bar">
 
-<!-- 朗读控制面板 -->
-<div id="tts-panel">
-  <div class="panel-title">AI 朗 读</div>
-  <label>语速 <span id="rate-val">0.9</span>x</label>
-  <input type="range" id="rate-slider" min="0.5" max="1.5" step="0.1" value="0.9">
-  <label>音量 <span id="vol-val">100</span>%</label>
-  <input type="range" id="vol-slider" min="0" max="1" step="0.05" value="1">
-  <button id="tts-play-btn">开始朗读</button>
-  <div id="tts-status">正在加载声音…</div>
+  <!-- 播放/暂停按钮 -->
+  <button id="player-play" title="播放/暂停">
+    <svg id="icon-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+    <svg id="icon-pause" viewBox="0 0 24 24" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+  </button>
+
+  <!-- 音频波形动画 -->
+  <div id="player-wave">
+    <span></span><span></span><span></span><span></span><span></span>
+  </div>
+
+  <!-- 进度 & 标题 -->
+  <div id="player-info">
+    <div id="player-title">AI 朗读 · 晓晓女声 · 你好，再见</div>
+    <div id="player-progress-wrap">
+      <div id="player-progress-fill"></div>
+    </div>
+    <div id="player-time">--:-- / --:--</div>
+  </div>
+
+  <!-- 朗读音量 -->
+  <div id="player-vol-wrap">
+    <span>朗读</span>
+    <input type="range" class="vol-slider" id="vol-voice" min="0" max="1" step="0.05" value="1">
+  </div>
+
+  <!-- 背景音乐开关 -->
+  <button id="player-bg-btn" title="背景音乐">
+    <svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+  </button>
+
+  <!-- 背景音量 -->
+  <div id="player-vol-wrap" style="display:none" id="bgvol-wrap">
+    <span>背景</span>
+    <input type="range" class="vol-slider" id="vol-bg" min="0" max="1" step="0.05" value="0.18">
+  </div>
+
 </div>
+
+<!-- 隐藏的 audio 元素 -->
+<audio id="main-audio" preload="auto" src="reading.mp3"></audio>
 
 <script>
 (function () {
-  if (!window.speechSynthesis) {
-    document.getElementById('tts-status').textContent = '浏览器不支持语音合成';
-    return;
+  var audio       = document.getElementById('main-audio');
+  var btnPlay     = document.getElementById('player-play');
+  var iconPlay    = document.getElementById('icon-play');
+  var iconPause   = document.getElementById('icon-pause');
+  var wave        = document.getElementById('player-wave');
+  var progressFill= document.getElementById('player-progress-fill');
+  var progressWrap= document.getElementById('player-progress-wrap');
+  var timeEl      = document.getElementById('player-time');
+  var volVoice    = document.getElementById('vol-voice');
+  var bgBtn       = document.getElementById('player-bg-btn');
+  var volBg       = document.getElementById('vol-bg');
+
+  /* ── 格式化时间 ── */
+  function fmt(s) {
+    if (isNaN(s)) return '--:--';
+    var m = Math.floor(s / 60);
+    var ss = Math.floor(s % 60);
+    return (m < 10 ? '0' : '') + m + ':' + (ss < 10 ? '0' : '') + ss;
   }
-
-  var synth = window.speechSynthesis;
-  var idx = 0;
-  var playing = false;
-  var rate = 0.9;
-  var vol = 1.0;
-  var voice = null;
-  var paras = [];
-  var panelOpen = false;
-  var currentUtter = null;
-
-  /* ── 收集正文段落 ── */
-  function collectParas() {
-    var sel = 'p, blockquote, .note-block, .preface-text, .cover-desc';
-    var nodes = document.querySelectorAll(sel);
-    var res = [];
-    nodes.forEach(function (n) {
-      // 排除面板内部元素
-      if (n.closest('#tts-panel')) return;
-      var t = (n.innerText || n.textContent || '').trim();
-      if (t.length > 2) res.push({ el: n, text: t });
-    });
-    // 也加入结尾诗节
-    var finalLine = document.querySelector('.ending-note .final-line');
-    if (finalLine) {
-      var t = (finalLine.innerText || finalLine.textContent || '').trim();
-      if (t.length > 2) res.push({ el: finalLine, text: t });
-    }
-    return res;
-  }
-
-  /* ── 挑选中文女声 ── */
-  function pickVoice() {
-    var voices = synth.getVoices();
-    if (!voices.length) return null;
-    // 女声关键词
-    var femaleKw = /xiaoxiao|xiaoyi|xiaochen|xiaomo|huihui|yaoyao|tingting|female|woman|晓晓|晓伊|晓陈|晓墨|慧慧|云希/i;
-    var zhFemale = voices.filter(function (v) {
-      return v.lang.startsWith('zh') && femaleKw.test(v.name);
-    });
-    if (zhFemale.length) return zhFemale[0];
-    var zh = voices.filter(function (v) { return v.lang.startsWith('zh'); });
-    if (zh.length) return zh[0];
-    return voices[0] || null;
-  }
-
-  /* ── 等待 voices 加载 ── */
-  function waitVoices(cb) {
-    var v = synth.getVoices();
-    if (v.length) { cb(v); return; }
-    var timer = setTimeout(function () { cb(synth.getVoices()); }, 1000);
-    synth.onvoiceschanged = function () {
-      clearTimeout(timer);
-      synth.onvoiceschanged = null;
-      cb(synth.getVoices());
-    };
-  }
-
-  /* ── UI helpers ── */
-  function setStatus(t) { document.getElementById('tts-status').textContent = t; }
-  function setBtn(t) { document.getElementById('tts-play-btn').textContent = t; }
-
-  function highlightPara(i) {
-    paras.forEach(function (p, j) {
-      if (j === i) {
-        p.el.classList.add('tts-reading');
-        p.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      } else {
-        p.el.classList.remove('tts-reading');
-      }
-    });
-  }
-  function clearHighlight() {
-    paras.forEach(function (p) { p.el.classList.remove('tts-reading'); });
-  }
-
-  function setBtnIcon(isPlaying) {
-    document.getElementById('tts-icon-sound').style.display = isPlaying ? 'none' : 'block';
-    document.getElementById('tts-icon-stop').style.display  = isPlaying ? 'block' : 'none';
-  }
-
-  /* ── 朗读核心 ── */
-  function readFrom(i) {
-    synth.cancel();
-    idx = i;
-    if (idx >= paras.length) {
-      playing = false;
-      setBtn('重新朗读');
-      setBtnIcon(false);
-      clearHighlight();
-      setStatus('朗读完毕 ✓');
-      return;
-    }
-    var p = paras[idx];
-    var u = new SpeechSynthesisUtterance(p.text);
-    u.lang   = 'zh-CN';
-    u.rate   = rate;
-    u.volume = vol;
-    if (voice) u.voice = voice;
-    currentUtter = u;
-
-    u.onstart = function () {
-      highlightPara(idx);
-      setStatus((idx + 1) + ' / ' + paras.length + ' 段');
-    };
-    u.onend = function () {
-      if (playing) { idx++; readFrom(idx); }
-    };
-    u.onerror = function (e) {
-      if (e.error === 'interrupted' || e.error === 'canceled') return;
-      setStatus('出错：' + e.error + '，请重试');
-      playing = false;
-      setBtn('开始朗读');
-      setBtnIcon(false);
-      clearHighlight();
-    };
-
-    synth.speak(u);
-    playing = true;
-    setBtn('暂停朗读');
-    setBtnIcon(true);
-  }
-
-  /* ── 初始化 voices ── */
-  waitVoices(function () {
-    voice = pickVoice();
-    setStatus(voice ? '声音：' + voice.name.slice(0, 18) : '使用默认声音');
-  });
-
-  /* ── 按钮：开关面板 ── */
-  document.getElementById('tts-btn').addEventListener('click', function (e) {
-    e.stopPropagation();
-    panelOpen = !panelOpen;
-    document.getElementById('tts-panel').classList.toggle('open', panelOpen);
-    if (panelOpen && paras.length === 0) {
-      paras = collectParas();
-    }
-  });
-
-  /* ── 面板外点击关闭 ── */
-  document.addEventListener('click', function (e) {
-    if (!panelOpen) return;
-    var panel = document.getElementById('tts-panel');
-    var btn   = document.getElementById('tts-btn');
-    if (!panel.contains(e.target) && !btn.contains(e.target)) {
-      panelOpen = false;
-      panel.classList.remove('open');
-    }
-  });
 
   /* ── 播放/暂停 ── */
-  document.getElementById('tts-play-btn').addEventListener('click', function () {
-    if (!paras.length) paras = collectParas();
-    if (!voice) voice = pickVoice();
-
-    if (playing) {
-      synth.cancel();
-      playing = false;
-      setBtn('继续朗读');
-      setBtnIcon(false);
-      clearHighlight();
-      setStatus('已暂停（第 ' + (idx + 1) + ' 段）');
+  btnPlay.addEventListener('click', function () {
+    if (audio.paused) {
+      audio.play().catch(function(e){ console.warn(e); });
     } else {
-      if (idx >= paras.length) idx = 0;
-      readFrom(idx);
+      audio.pause();
     }
   });
 
-  /* ── 语速滑块 ── */
-  document.getElementById('rate-slider').addEventListener('input', function () {
-    rate = parseFloat(this.value);
-    document.getElementById('rate-val').textContent = rate.toFixed(1);
-    if (playing) {
-      var saved = idx;
-      synth.cancel();
-      playing = false;
-      setTimeout(function () { readFrom(saved); }, 80);
+  audio.addEventListener('play', function () {
+    iconPlay.style.display  = 'none';
+    iconPause.style.display = 'block';
+    wave.classList.add('playing');
+    if (bgEnabled) startBg();
+  });
+
+  audio.addEventListener('pause', function () {
+    iconPlay.style.display  = 'block';
+    iconPause.style.display = 'none';
+    wave.classList.remove('playing');
+    if (bgGain) bgGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5);
+  });
+
+  audio.addEventListener('ended', function () {
+    iconPlay.style.display  = 'block';
+    iconPause.style.display = 'none';
+    wave.classList.remove('playing');
+    stopBg();
+  });
+
+  /* ── 进度更新 ── */
+  audio.addEventListener('timeupdate', function () {
+    if (!audio.duration) return;
+    var pct = (audio.currentTime / audio.duration) * 100;
+    progressFill.style.width = pct + '%';
+    timeEl.textContent = fmt(audio.currentTime) + ' / ' + fmt(audio.duration);
+  });
+
+  /* ── 点击进度条跳转 ── */
+  progressWrap.addEventListener('click', function (e) {
+    var rect = progressWrap.getBoundingClientRect();
+    var ratio = (e.clientX - rect.left) / rect.width;
+    audio.currentTime = ratio * audio.duration;
+  });
+
+  /* ── 朗读音量 ── */
+  volVoice.addEventListener('input', function () {
+    audio.volume = parseFloat(this.value);
+  });
+
+  /* ══ 背景音乐（Web Audio API 合成轻钢琴音） ══ */
+  var audioCtx = null;
+  var bgGain   = null;
+  var bgNodes  = [];
+  var bgEnabled= false;
+  var bgStarted= false;
+
+  // C大调轻柔和弦序列（频率 Hz）
+  var CHORDS = [
+    [261.63, 329.63, 392.00],  // C maj
+    [293.66, 369.99, 440.00],  // D min
+    [261.63, 329.63, 392.00],  // C maj
+    [349.23, 440.00, 523.25],  // F maj
+    [392.00, 493.88, 587.33],  // G maj
+    [261.63, 329.63, 392.00],  // C maj
+    [349.23, 392.00, 493.88],  // F/A
+    [293.66, 369.99, 440.00],  // D min
+  ];
+  var chordIdx = 0;
+  var bgTimer  = null;
+
+  function initAudioCtx() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    bgGain = audioCtx.createGain();
+    bgGain.gain.value = 0;
+    bgGain.connect(audioCtx.destination);
+  }
+
+  function playChord(freqs, when, dur) {
+    freqs.forEach(function (freq) {
+      var osc = audioCtx.createOscillator();
+      var env = audioCtx.createGain();
+      // 用三角波模拟柔和钢琴音
+      osc.type = 'triangle';
+      osc.frequency.value = freq;
+      env.gain.setValueAtTime(0, when);
+      env.gain.linearRampToValueAtTime(0.18, when + 0.05);
+      env.gain.exponentialRampToValueAtTime(0.001, when + dur);
+      osc.connect(env);
+      env.connect(bgGain);
+      osc.start(when);
+      osc.stop(when + dur + 0.05);
+      bgNodes.push(osc);
+    });
+  }
+
+  function scheduleChords() {
+    var now = audioCtx.currentTime;
+    var step = 3.2; // 每个和弦持续秒数
+    for (var i = 0; i < 3; i++) {
+      var idx = (chordIdx + i) % CHORDS.length;
+      playChord(CHORDS[idx], now + i * step, step * 0.85);
+    }
+    chordIdx = (chordIdx + 3) % CHORDS.length;
+    // 清理已完成的节点
+    bgNodes = bgNodes.filter(function(n){ return true; });
+    bgTimer = setTimeout(scheduleChords, step * 3 * 1000 - 300);
+  }
+
+  function startBg() {
+    if (!bgEnabled) return;
+    initAudioCtx();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    var targetVol = parseFloat(volBg.value);
+    bgGain.gain.setTargetAtTime(targetVol, audioCtx.currentTime, 0.8);
+    if (!bgStarted) {
+      bgStarted = true;
+      scheduleChords();
+    }
+  }
+
+  function stopBg() {
+    if (bgGain) bgGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.8);
+    if (bgTimer) { clearTimeout(bgTimer); bgTimer = null; }
+    bgStarted = false;
+    chordIdx  = 0;
+  }
+
+  /* ── 背景音乐开关 ── */
+  bgBtn.addEventListener('click', function () {
+    bgEnabled = !bgEnabled;
+    bgBtn.classList.toggle('active', bgEnabled);
+    // 显示/隐藏背景音量
+    var bgVolWrap = document.querySelectorAll('#player-vol-wrap')[1];
+    if (bgVolWrap) bgVolWrap.style.display = bgEnabled ? 'flex' : 'none';
+
+    if (bgEnabled && !audio.paused) {
+      startBg();
+    } else if (!bgEnabled) {
+      stopBg();
     }
   });
 
-  /* ── 音量滑块 ── */
-  document.getElementById('vol-slider').addEventListener('input', function () {
-    vol = parseFloat(this.value);
-    document.getElementById('vol-val').textContent = Math.round(vol * 100);
+  /* ── 背景音量滑块 ── */
+  volBg.addEventListener('input', function () {
+    if (bgGain) bgGain.gain.setTargetAtTime(parseFloat(this.value), audioCtx.currentTime, 0.1);
   });
 
 })();
