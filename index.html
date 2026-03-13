@@ -1053,7 +1053,7 @@
 </script>
 
 <!-- 朗读按钮 -->
-<button id="tts-btn" title="AI朗读" onclick="togglePanel()">
+<button id="tts-btn" title="AI朗读">
   <svg id="tts-icon-sound" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
     <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
   </svg>
@@ -1065,57 +1065,85 @@
 <!-- 朗读控制面板 -->
 <div id="tts-panel">
   <div class="panel-title">AI 朗 读</div>
-  <label>语速 <span id="rate-val">1.0</span>x</label>
-  <input type="range" id="rate-slider" min="0.6" max="1.6" step="0.1" value="1.0" oninput="updateRate(this.value)">
+  <label>语速 <span id="rate-val">0.9</span>x</label>
+  <input type="range" id="rate-slider" min="0.5" max="1.5" step="0.1" value="0.9">
   <label>音量 <span id="vol-val">100</span>%</label>
-  <input type="range" id="vol-slider" min="0" max="1" step="0.05" value="1" oninput="updateVol(this.value)">
-  <button id="tts-play-btn" onclick="toggleRead()">开始朗读</button>
-  <div id="tts-status"></div>
+  <input type="range" id="vol-slider" min="0" max="1" step="0.05" value="1">
+  <button id="tts-play-btn">开始朗读</button>
+  <div id="tts-status">正在加载声音…</div>
 </div>
 
 <script>
-(function() {
-  const synth = window.speechSynthesis;
-  let utterances = [];
-  let currentIdx = 0;
-  let isPlaying = false;
-  let rate = 1.0;
-  let volume = 1.0;
-  let femaleVoice = null;
-  let paragraphs = [];
-  let panelOpen = false;
-
-  // 获取所有正文段落（排除脚本、按钮等）
-  function getParagraphs() {
-    const nodes = document.querySelectorAll('p, blockquote, .note-block, .preface-text, .ending-note .final-line, .cover-desc');
-    const result = [];
-    nodes.forEach(n => {
-      const text = n.innerText.trim();
-      if (text.length > 1) result.push({ el: n, text });
-    });
-    return result;
+(function () {
+  if (!window.speechSynthesis) {
+    document.getElementById('tts-status').textContent = '浏览器不支持语音合成';
+    return;
   }
 
-  // 挑选中文女声
-  function pickFemaleVoice() {
-    const voices = synth.getVoices();
-    // 优先顺序：中文女声 > 中文声音 > 任何声音
-    const zhFemale = voices.filter(v =>
-      v.lang.startsWith('zh') && /female|woman|girl|xiaoxiao|xiaoyi|yunxi|huihui|yaoyao|tingting|凌小宣|晓晓|云希|慧慧/i.test(v.name)
-    );
+  var synth = window.speechSynthesis;
+  var idx = 0;
+  var playing = false;
+  var rate = 0.9;
+  var vol = 1.0;
+  var voice = null;
+  var paras = [];
+  var panelOpen = false;
+  var currentUtter = null;
+
+  /* ── 收集正文段落 ── */
+  function collectParas() {
+    var sel = 'p, blockquote, .note-block, .preface-text, .cover-desc';
+    var nodes = document.querySelectorAll(sel);
+    var res = [];
+    nodes.forEach(function (n) {
+      // 排除面板内部元素
+      if (n.closest('#tts-panel')) return;
+      var t = (n.innerText || n.textContent || '').trim();
+      if (t.length > 2) res.push({ el: n, text: t });
+    });
+    // 也加入结尾诗节
+    var finalLine = document.querySelector('.ending-note .final-line');
+    if (finalLine) {
+      var t = (finalLine.innerText || finalLine.textContent || '').trim();
+      if (t.length > 2) res.push({ el: finalLine, text: t });
+    }
+    return res;
+  }
+
+  /* ── 挑选中文女声 ── */
+  function pickVoice() {
+    var voices = synth.getVoices();
+    if (!voices.length) return null;
+    // 女声关键词
+    var femaleKw = /xiaoxiao|xiaoyi|xiaochen|xiaomo|huihui|yaoyao|tingting|female|woman|晓晓|晓伊|晓陈|晓墨|慧慧|云希/i;
+    var zhFemale = voices.filter(function (v) {
+      return v.lang.startsWith('zh') && femaleKw.test(v.name);
+    });
     if (zhFemale.length) return zhFemale[0];
-    const zh = voices.filter(v => v.lang.startsWith('zh'));
+    var zh = voices.filter(function (v) { return v.lang.startsWith('zh'); });
     if (zh.length) return zh[0];
     return voices[0] || null;
   }
 
-  function setStatus(txt) {
-    document.getElementById('tts-status').textContent = txt;
+  /* ── 等待 voices 加载 ── */
+  function waitVoices(cb) {
+    var v = synth.getVoices();
+    if (v.length) { cb(v); return; }
+    var timer = setTimeout(function () { cb(synth.getVoices()); }, 1000);
+    synth.onvoiceschanged = function () {
+      clearTimeout(timer);
+      synth.onvoiceschanged = null;
+      cb(synth.getVoices());
+    };
   }
 
-  function highlightPara(idx) {
-    paragraphs.forEach((p, i) => {
-      if (i === idx) {
+  /* ── UI helpers ── */
+  function setStatus(t) { document.getElementById('tts-status').textContent = t; }
+  function setBtn(t) { document.getElementById('tts-play-btn').textContent = t; }
+
+  function highlightPara(i) {
+    paras.forEach(function (p, j) {
+      if (j === i) {
         p.el.classList.add('tts-reading');
         p.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       } else {
@@ -1123,104 +1151,120 @@
       }
     });
   }
-
   function clearHighlight() {
-    paragraphs.forEach(p => p.el.classList.remove('tts-reading'));
+    paras.forEach(function (p) { p.el.classList.remove('tts-reading'); });
   }
 
-  function setPlayingUI(playing) {
-    isPlaying = playing;
-    document.getElementById('tts-play-btn').textContent = playing ? '暂停朗读' : '继续朗读';
-    document.getElementById('tts-icon-sound').style.display = playing ? 'none' : 'block';
-    document.getElementById('tts-icon-stop').style.display = playing ? 'block' : 'none';
-    if (!playing) clearHighlight();
+  function setBtnIcon(isPlaying) {
+    document.getElementById('tts-icon-sound').style.display = isPlaying ? 'none' : 'block';
+    document.getElementById('tts-icon-stop').style.display  = isPlaying ? 'block' : 'none';
   }
 
-  function readFrom(idx) {
+  /* ── 朗读核心 ── */
+  function readFrom(i) {
     synth.cancel();
-    currentIdx = idx;
-    if (currentIdx >= paragraphs.length) {
-      setPlayingUI(false);
-      setStatus('朗读完毕');
+    idx = i;
+    if (idx >= paras.length) {
+      playing = false;
+      setBtn('重新朗读');
+      setBtnIcon(false);
+      clearHighlight();
+      setStatus('朗读完毕 ✓');
       return;
     }
-    const p = paragraphs[currentIdx];
-    const utter = new SpeechSynthesisUtterance(p.text);
-    utter.lang = 'zh-CN';
-    utter.rate = rate;
-    utter.volume = volume;
-    if (femaleVoice) utter.voice = femaleVoice;
+    var p = paras[idx];
+    var u = new SpeechSynthesisUtterance(p.text);
+    u.lang   = 'zh-CN';
+    u.rate   = rate;
+    u.volume = vol;
+    if (voice) u.voice = voice;
+    currentUtter = u;
 
-    utter.onstart = () => {
-      highlightPara(currentIdx);
-      setStatus('第 ' + (currentIdx + 1) + ' / ' + paragraphs.length + ' 段');
+    u.onstart = function () {
+      highlightPara(idx);
+      setStatus((idx + 1) + ' / ' + paras.length + ' 段');
     };
-    utter.onend = () => {
-      currentIdx++;
-      readFrom(currentIdx);
+    u.onend = function () {
+      if (playing) { idx++; readFrom(idx); }
     };
-    utter.onerror = (e) => {
-      if (e.error !== 'interrupted') {
-        setStatus('朗读出错，请重试');
-        setPlayingUI(false);
-      }
+    u.onerror = function (e) {
+      if (e.error === 'interrupted' || e.error === 'canceled') return;
+      setStatus('出错：' + e.error + '，请重试');
+      playing = false;
+      setBtn('开始朗读');
+      setBtnIcon(false);
+      clearHighlight();
     };
-    synth.speak(utter);
-    setPlayingUI(true);
+
+    synth.speak(u);
+    playing = true;
+    setBtn('暂停朗读');
+    setBtnIcon(true);
   }
 
-  window.togglePanel = function() {
+  /* ── 初始化 voices ── */
+  waitVoices(function () {
+    voice = pickVoice();
+    setStatus(voice ? '声音：' + voice.name.slice(0, 18) : '使用默认声音');
+  });
+
+  /* ── 按钮：开关面板 ── */
+  document.getElementById('tts-btn').addEventListener('click', function (e) {
+    e.stopPropagation();
     panelOpen = !panelOpen;
     document.getElementById('tts-panel').classList.toggle('open', panelOpen);
-    if (panelOpen && paragraphs.length === 0) {
-      paragraphs = getParagraphs();
-      femaleVoice = pickFemaleVoice();
-      if (!femaleVoice) {
-        // voices可能还没加载完，等一下
-        synth.onvoiceschanged = () => { femaleVoice = pickFemaleVoice(); };
-      }
-      setStatus(femaleVoice ? '声音：' + femaleVoice.name.slice(0, 16) : '使用默认声音');
-    }
-  };
-
-  window.toggleRead = function() {
-    if (!paragraphs.length) paragraphs = getParagraphs();
-    if (!femaleVoice) femaleVoice = pickFemaleVoice();
-
-    if (isPlaying) {
-      synth.cancel();
-      setPlayingUI(false);
-      setStatus('已暂停');
-    } else {
-      // 如果已经读完或还没开始
-      if (currentIdx >= paragraphs.length) currentIdx = 0;
-      readFrom(currentIdx);
-      document.getElementById('tts-play-btn').textContent = '暂停朗读';
-    }
-  };
-
-  window.updateRate = function(val) {
-    rate = parseFloat(val);
-    document.getElementById('rate-val').textContent = rate.toFixed(1);
-    if (isPlaying) {
-      const idx = currentIdx;
-      synth.cancel();
-      setTimeout(() => readFrom(idx), 100);
-    }
-  };
-
-  window.updateVol = function(val) {
-    volume = parseFloat(val);
-    document.getElementById('vol-val').textContent = Math.round(volume * 100);
-  };
-
-  // 点击面板外关闭
-  document.addEventListener('click', function(e) {
-    if (panelOpen && !document.getElementById('tts-panel').contains(e.target) && e.target.id !== 'tts-btn' && !document.getElementById('tts-btn').contains(e.target)) {
-      panelOpen = false;
-      document.getElementById('tts-panel').classList.remove('open');
+    if (panelOpen && paras.length === 0) {
+      paras = collectParas();
     }
   });
+
+  /* ── 面板外点击关闭 ── */
+  document.addEventListener('click', function (e) {
+    if (!panelOpen) return;
+    var panel = document.getElementById('tts-panel');
+    var btn   = document.getElementById('tts-btn');
+    if (!panel.contains(e.target) && !btn.contains(e.target)) {
+      panelOpen = false;
+      panel.classList.remove('open');
+    }
+  });
+
+  /* ── 播放/暂停 ── */
+  document.getElementById('tts-play-btn').addEventListener('click', function () {
+    if (!paras.length) paras = collectParas();
+    if (!voice) voice = pickVoice();
+
+    if (playing) {
+      synth.cancel();
+      playing = false;
+      setBtn('继续朗读');
+      setBtnIcon(false);
+      clearHighlight();
+      setStatus('已暂停（第 ' + (idx + 1) + ' 段）');
+    } else {
+      if (idx >= paras.length) idx = 0;
+      readFrom(idx);
+    }
+  });
+
+  /* ── 语速滑块 ── */
+  document.getElementById('rate-slider').addEventListener('input', function () {
+    rate = parseFloat(this.value);
+    document.getElementById('rate-val').textContent = rate.toFixed(1);
+    if (playing) {
+      var saved = idx;
+      synth.cancel();
+      playing = false;
+      setTimeout(function () { readFrom(saved); }, 80);
+    }
+  });
+
+  /* ── 音量滑块 ── */
+  document.getElementById('vol-slider').addEventListener('input', function () {
+    vol = parseFloat(this.value);
+    document.getElementById('vol-val').textContent = Math.round(vol * 100);
+  });
+
 })();
 </script>
 
