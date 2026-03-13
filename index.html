@@ -1123,33 +1123,20 @@
     <div id="player-time">--:-- / --:--</div>
   </div>
 
-  <!-- 朗读音量 -->
+  <!-- 音量 -->
   <div id="player-vol-wrap">
-    <span>朗读</span>
+    <span>音量</span>
     <input type="range" class="vol-slider" id="vol-voice" min="0" max="1" step="0.05" value="1">
-  </div>
-
-  <!-- 背景音乐开关 -->
-  <button id="player-bg-btn" title="背景音乐">
-    <svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
-  </button>
-
-  <!-- 背景音量 -->
-  <div id="player-vol-wrap" style="display:none" id="bgvol-wrap">
-    <span>背景</span>
-    <input type="range" class="vol-slider" id="vol-bg" min="0" max="1" step="0.05" value="0.18">
   </div>
 
 </div>
 
-<!-- 隐藏的 audio 元素 -->
-<audio id="main-audio" preload="auto" src="reading.mp3"></audio>
-<audio id="bg-audio" preload="auto" src="bg_music.mp3" loop></audio>
+<!-- 音频 -->
+<audio id="main-audio" preload="auto" src="combined.mp3"></audio>
 
 <script>
 (function () {
   var audio       = document.getElementById('main-audio');
-  var bgAudio     = document.getElementById('bg-audio');
   var btnPlay     = document.getElementById('player-play');
   var iconPlay    = document.getElementById('icon-play');
   var iconPause   = document.getElementById('icon-pause');
@@ -1158,12 +1145,7 @@
   var progressWrap= document.getElementById('player-progress-wrap');
   var timeEl      = document.getElementById('player-time');
   var volVoice    = document.getElementById('vol-voice');
-  var bgBtn       = document.getElementById('player-bg-btn');
-  var volBg       = document.getElementById('vol-bg');
 
-  var bgEnabled = false;
-
-  /* ── 格式化时间 ── */
   function fmt(s) {
     if (isNaN(s)) return '--:--';
     var m = Math.floor(s / 60);
@@ -1171,7 +1153,6 @@
     return (m < 10 ? '0' : '') + m + ':' + (ss < 10 ? '0' : '') + ss;
   }
 
-  /* ── 播放/暂停 ── */
   btnPlay.addEventListener('click', function () {
     if (audio.paused) {
       audio.play().catch(function(e){ console.warn(e); });
@@ -1184,28 +1165,20 @@
     iconPlay.style.display  = 'none';
     iconPause.style.display = 'block';
     wave.classList.add('playing');
-    if (bgEnabled) {
-      bgAudio.volume = parseFloat(volBg.value);
-      bgAudio.play().catch(function(e){ console.warn(e); });
-    }
   });
 
   audio.addEventListener('pause', function () {
     iconPlay.style.display  = 'block';
     iconPause.style.display = 'none';
     wave.classList.remove('playing');
-    if (bgEnabled) bgAudio.pause();
   });
 
   audio.addEventListener('ended', function () {
     iconPlay.style.display  = 'block';
     iconPause.style.display = 'none';
     wave.classList.remove('playing');
-    bgAudio.pause();
-    bgAudio.currentTime = 0;
   });
 
-  /* ── 进度更新 ── */
   audio.addEventListener('timeupdate', function () {
     if (!audio.duration) return;
     var pct = (audio.currentTime / audio.duration) * 100;
@@ -1213,44 +1186,15 @@
     timeEl.textContent = fmt(audio.currentTime) + ' / ' + fmt(audio.duration);
   });
 
-  /* ── 点击进度条跳转 ── */
   progressWrap.addEventListener('click', function (e) {
     var rect = progressWrap.getBoundingClientRect();
     var ratio = (e.clientX - rect.left) / rect.width;
     audio.currentTime = ratio * audio.duration;
   });
 
-  /* ── 朗读音量 ── */
   volVoice.addEventListener('input', function () {
     audio.volume = parseFloat(this.value);
   });
-
-  /* ── 背景音乐开关 ── */
-  bgBtn.addEventListener('click', function () {
-    bgEnabled = !bgEnabled;
-    bgBtn.classList.toggle('active', bgEnabled);
-    // 显示/隐藏背景音量滑块
-    var bgVolWrap = document.querySelectorAll('#player-vol-wrap')[1];
-    if (bgVolWrap) bgVolWrap.style.display = bgEnabled ? 'flex' : 'none';
-
-    if (bgEnabled) {
-      bgAudio.volume = parseFloat(volBg.value);
-      if (!audio.paused) {
-        bgAudio.play().catch(function(e){ console.warn(e); });
-      }
-    } else {
-      bgAudio.pause();
-      bgAudio.currentTime = 0;
-    }
-  });
-
-  /* ── 背景音量滑块 ── */
-  volBg.addEventListener('input', function () {
-    bgAudio.volume = parseFloat(this.value);
-  });
-
-  // 初始背景音量
-  bgAudio.volume = parseFloat(volBg.value);
 
 })();
 </script>
